@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Fresh Jobs</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="popup-header">
+      <div class="popup-title">
+        <span class="popup-icon">🔍</span>
+        <span>Fresh Jobs</span>
+      </div>
+      <div class="popup-version">v1.0</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="popup-content">
+      <!-- Quick Filters -->
+      <div class="section">
+        <div class="section-title">Quick Presets</div>
+        <div class="preset-buttons">
+          <button class="preset-btn" data-preset="superFresh">
+            <span class="preset-emoji">🔥</span>
+            <span class="preset-name">Super Fresh</span>
+            <span class="preset-time">30m</span>
+          </button>
+          <button class="preset-btn" data-preset="competitive">
+            <span class="preset-emoji">⚡</span>
+            <span class="preset-name">Competitive</span>
+            <span class="preset-time">2h</span>
+          </button>
+          <button class="preset-btn" data-preset="todayOnly">
+            <span class="preset-emoji">🟢</span>
+            <span class="preset-name">Today</span>
+            <span class="preset-time">24h</span>
+          </button>
+          <button class="preset-btn" data-preset="all">
+            <span class="preset-emoji">📋</span>
+            <span class="preset-name">All</span>
+            <span class="preset-time">∞</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Current Filter Display -->
+      <div class="section">
+        <div class="section-title">Active Filter</div>
+        <div class="current-filter" id="currentFilter">
+          <span class="filter-icon">🎯</span>
+          <span class="filter-info">
+            <span class="filter-name" id="filterName">2 hours</span>
+            <span class="filter-desc" id="filterDesc">Showing fresh jobs</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Statistics -->
+      <div class="section">
+        <div class="section-title">Statistics</div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total</div>
+            <div class="stat-value" id="statTotal">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Filtered</div>
+            <div class="stat-value" id="statFiltered">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Hot</div>
+            <div class="stat-value" id="statHot">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Fresh</div>
+            <div class="stat-value" id="statFresh">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="section">
+        <div class="section-title">Settings</div>
+        
+        <div class="setting-row">
+          <label class="setting-label">Theme</label>
+          <select id="themeSelect" class="select-control">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="auto">Auto</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <label class="setting-label">Panel Position</label>
+          <select id="positionSelect" class="select-control">
+            <option value="bottom-right">Bottom Right</option>
+            <option value="bottom-left">Bottom Left</option>
+            <option value="top-right">Top Right</option>
+            <option value="top-left">Top Left</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <label class="setting-label">Auto Scan</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="autoScanToggle" class="toggle-input">
+            <label for="autoScanToggle" class="toggle-label"></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Time Filter -->
+      <div class="section">
+        <div class="section-title">Custom Filter</div>
+        <div class="custom-time-input">
+          <input 
+            type="number" 
+            id="customMinutes" 
+            min="1" 
+            max="10080" 
+            value="120"
+            class="input-control"
+            placeholder="Minutes"
+          >
+          <button id="applyCustomBtn" class="btn btn-primary">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="popup-footer">
+      <div class="footer-links">
+        <button id="refreshBtn" class="footer-btn" title="Refresh scan">
+          🔄 Refresh
+        </button>
+        <button id="openDocsBtn" class="footer-btn" title="Keyboard shortcuts">
+          ⌨️ Shortcuts
+        </button>
+      </div>
+      <div class="footer-status">
+        <span id="connectionStatus" class="status-indicator">●</span>
+        <span id="statusText">Connected</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shortcuts Modal -->
+  <div id="shortcutsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Keyboard Shortcuts</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcut-item">
+          <kbd>Ctrl + Shift + L</kbd>
+          <span>Toggle Dashboard</span>
+        </div>
+        <div class="shortcut-item">
+          <kbd>Ctrl + Shift + R</kbd>
+          <span>Reset Filters</span>
+        </div>
+        <div class="shortcut-item">
+          <kbd>Ctrl + Shift + T</kbd>
+          <span>Toggle Theme</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../utils/constants.js"></script>
+  <script src="../utils/logger.js"></script>
+  <script src="../utils/helpers.js"></script>
+  <script src="../utils/storage.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

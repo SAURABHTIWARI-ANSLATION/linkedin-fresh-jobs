@@ -1,0 +1,567 @@
+/**
+ * LinkedIn Fresh Jobs - Popup Styles
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary-color: #0a66c2;
+  --primary-hover: #004182;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --text-primary: #000000;
+  --text-secondary: #666666;
+  --border-color: #e5e5e5;
+  --success-color: #00dd00;
+  --warning-color: #ff8c00;
+  --error-color: #ff4444;
+
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+
+  --transition: all 200ms ease-in-out;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #2d2d2d;
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --border-color: #404040;
+  }
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  width: 400px;
+  max-height: 600px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================
+   Main Container
+   ============================================ */
+
+.popup-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+/* ============================================
+   Header
+   ============================================ */
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(135deg, rgba(10, 102, 194, 0.1) 0%, transparent 100%);
+}
+
+.popup-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.popup-icon {
+  font-size: 24px;
+}
+
+.popup-version {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* ============================================
+   Content Area
+   ============================================ */
+
+.popup-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* Section */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+/* ============================================
+   Preset Buttons
+   ============================================ */
+
+.preset-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+}
+
+.preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 13px;
+}
+
+.preset-btn:hover {
+  background: var(--primary-color);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(10, 102, 194, 0.2);
+}
+
+.preset-btn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: white;
+  box-shadow: 0 0 12px rgba(10, 102, 194, 0.3);
+}
+
+.preset-emoji {
+  font-size: 20px;
+}
+
+.preset-name {
+  font-weight: 600;
+}
+
+.preset-time {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ============================================
+   Current Filter Display
+   ============================================ */
+
+.current-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border-left: 4px solid var(--primary-color);
+}
+
+.filter-icon {
+  font-size: 20px;
+}
+
+.filter-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.filter-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.filter-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   Statistics
+   ============================================ */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+/* ============================================
+   Settings
+   ============================================ */
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* ============================================
+   Controls
+   ============================================ */
+
+.select-control,
+.input-control {
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.select-control:hover,
+.input-control:hover {
+  border-color: var(--primary-color);
+}
+
+.select-control:focus,
+.input-control:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.1);
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggle-input {
+  display: none;
+}
+
+.toggle-label {
+  width: 44px;
+  height: 24px;
+  background: var(--border-color);
+  border-radius: 12px;
+  position: relative;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.toggle-label::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: var(--transition);
+}
+
+.toggle-input:checked + .toggle-label {
+  background: var(--primary-color);
+}
+
+.toggle-input:checked + .toggle-label::after {
+  left: 22px;
+}
+
+/* ============================================
+   Custom Time Input
+   ============================================ */
+
+.custom-time-input {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.input-control {
+  flex: 1;
+}
+
+.btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  transition: var(--transition);
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+  box-shadow: 0 2px 8px rgba(10, 102, 194, 0.2);
+}
+
+.btn-primary:active {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+
+.popup-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  font-size: 12px;
+}
+
+.footer-links {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.footer-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: var(--transition);
+  font-size: 12px;
+}
+
+.footer-btn:hover {
+  background: var(--bg-primary);
+  color: var(--primary-color);
+}
+
+.footer-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--text-secondary);
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success-color);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ============================================
+   Modal
+   ============================================ */
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.visible {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--bg-primary);
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+  animation: slideUp 300ms ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h2 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.modal-close:hover {
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.shortcut-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm);
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+kbd {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ============================================
+   Scrollbar
+   ============================================ */
+
+.popup-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.popup-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.popup-content::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.popup-content::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+
+@media (max-width: 480px) {
+  body {
+    width: 360px;
+  }
+
+  .preset-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
