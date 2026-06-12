@@ -17,8 +17,8 @@ class Dashboard {
   /**
    * Initialize dashboard
    */
-  initialize() {
-    this.loadPosition();
+  async initialize() {
+    await this.loadPosition();
     this.create();
     this.attachEventListeners();
     this.startAutoUpdate();
@@ -123,61 +123,94 @@ class Dashboard {
     if (!this.contentElement) return;
 
     const stats = filterEngine.getStatistics(jobs);
-    const filteredStats = filterEngine.getStatistics(filteredJobs);
+    const counts = stats.countByCategory;
+    const activeRange = filterEngine.activeRange;
+    const activeFilterLabel = activeRange ? activeRange.label : 'Reset / Show All';
+    
+    const visibleCount = filteredJobs.length;
+    const hiddenCount = jobs.length - visibleCount;
 
     this.contentElement.innerHTML = `
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">📋 Total Jobs</span>
-        <span class="ljf-stat-value">${stats.total}</span>
+        <span class="ljf-stat-label">📋 Total Scanned</span>
+        <span class="ljf-stat-value">${jobs.length}</span>
       </div>
 
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">✅ Filtered</span>
-        <span class="ljf-stat-value">${filteredStats.total}</span>
+        <span class="ljf-stat-label">⚙️ Active Filter</span>
+        <span class="ljf-stat-value" style="font-weight: bold; color: #0a66c2;">${activeFilterLabel}</span>
       </div>
 
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">🔥 Very Hot</span>
-        <span class="ljf-stat-value">${stats.countByCategory.veryHot}</span>
+        <span class="ljf-stat-label">👁️ Visible Jobs</span>
+        <span class="ljf-stat-value" style="color: #00dd00; font-weight: bold;">${visibleCount}</span>
       </div>
 
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">⚡ Hot</span>
-        <span class="ljf-stat-value">${stats.countByCategory.hot}</span>
+        <span class="ljf-stat-label">🙈 Hidden Jobs</span>
+        <span class="ljf-stat-value" style="color: #ff4444;">${hiddenCount}</span>
+      </div>
+
+      <div class="ljf-divider" style="margin: 8px 0; border-top: 1px solid rgba(0,0,0,0.1); border-color: var(--ljf-border);"></div>
+      <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; color: var(--ljf-text-secondary);">Fresh Job Buckets:</div>
+
+      <div class="ljf-stat-row">
+        <span class="ljf-stat-label">🔥 Now</span>
+        <span class="ljf-stat-value">${counts.now}</span>
       </div>
 
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">🟢 Fresh</span>
-        <span class="ljf-stat-value">${stats.countByCategory.fresh}</span>
+        <span class="ljf-stat-label">🔥 0–10 min</span>
+        <span class="ljf-stat-value">${counts["0-10"]}</span>
       </div>
 
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">🟡 Recent</span>
-        <span class="ljf-stat-value">${stats.countByCategory.recent}</span>
+        <span class="ljf-stat-label">⚡ 10–30 min</span>
+        <span class="ljf-stat-value">${counts["10-30"]}</span>
       </div>
 
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">⏱️ Newest</span>
-        <span class="ljf-stat-value">${timeParser.formatTime(stats.newestMinutes)}</span>
+        <span class="ljf-stat-label">🟢 30–60 min</span>
+        <span class="ljf-stat-value">${counts["30-60"]}</span>
       </div>
 
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">📅 Oldest</span>
-        <span class="ljf-stat-value">${timeParser.formatTime(stats.oldestMinutes)}</span>
+        <span class="ljf-stat-label">🟡 60–90 min</span>
+        <span class="ljf-stat-value">${counts["60-90"]}</span>
       </div>
 
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">📊 Avg. Score</span>
-        <span class="ljf-stat-value">${stats.averageScore.toFixed(0)}</span>
+        <span class="ljf-stat-label">🟠 90–120 min</span>
+        <span class="ljf-stat-value">${counts["90-120"]}</span>
+      </div>
+
+      <div class="ljf-stat-row">
+        <span class="ljf-stat-label">🔵 120–150 min</span>
+        <span class="ljf-stat-value">${counts["120-150"]}</span>
+      </div>
+
+      <div class="ljf-stat-row">
+        <span class="ljf-stat-label">🟣 150–180 min</span>
+        <span class="ljf-stat-value">${counts["150-180"]}</span>
+      </div>
+
+      <div class="ljf-stat-row">
+        <span class="ljf-stat-label">⚫ Older</span>
+        <span class="ljf-stat-value">${counts.older}</span>
+      </div>
+
+      <div class="ljf-stat-row">
+        <span class="ljf-stat-label">❔ Unknown / Promoted</span>
+        <span class="ljf-stat-value">${counts.unknown}</span>
       </div>
 
       ${jobs.length > 0 ? `
-        <div class="ljf-stat-row ljf-text-muted">
+        <div class="ljf-stat-row ljf-text-muted" style="margin-top: 8px; font-size: 11px;">
           <span>Last updated: ${new Date().toLocaleTimeString()}</span>
         </div>
       ` : `
-        <div class="ljf-error">
-          No jobs found. Try scrolling or refreshing the page.
+        <div class="ljf-error" style="margin-top: 8px;">
+          No jobs found. Scroll to scan.
         </div>
       `}
     `;
@@ -187,6 +220,7 @@ class Dashboard {
    * Start auto-update interval
    */
   startAutoUpdate() {
+    this.stopAutoUpdate();
     this.updateInterval = setInterval(() => {
       const jobs = jobScanner.getCachedJobs();
       const filteredJobs = jobScanner.getFilteredJobs();
@@ -271,15 +305,15 @@ class Dashboard {
     this.savePosition();
   }
 
-  /**
-   * Load position from storage
-   */
-  loadPosition() {
-    storage.get('panelPosition').then(result => {
+  async loadPosition() {
+    try {
+      const result = await storage.get('panelPosition');
       if (result.panelPosition) {
         this.position = result.panelPosition;
       }
-    });
+    } catch (e) {
+      logger?.warn('Failed to load dashboard position', e);
+    }
   }
 
   /**

@@ -9,14 +9,24 @@
 const SELECTORS = {
   // Job card containers - primary and fallbacks
   jobCard: [
+    '.job-card-container',
+    '.jobs-search-results__list-item',
+    'div.base-card.job-search-card',
+    '.base-search-card',
     '[data-job-id]',
-    '.base-card',
-    '[data-entity-urn*="jobPosting"]',
-    '.jobs-search-results__list-item'
+    '[data-entity-urn*="jobPosting"]'
   ],
 
-  // Posted time text - multiple variations
+  // Posted time text - multiple variations (time tag is key in MV3/modern LinkedIn)
   timeText: [
+    'time',
+    '.job-card-list__footer-item',
+    '.job-card-container__footer-item',
+    '.job-card-container__metadata-item',
+    '.job-search-card__listdate',
+    '.job-result-card__listdate',
+    '[class*="listdate"]',
+    '[class*="footer-item"]',
     '.job-search-card__metadata-item:first-child',
     '[data-public-jobs-feed-item-posted-time]',
     '[aria-label*="ago"]',
@@ -27,6 +37,8 @@ const SELECTORS = {
 
   // Job title
   jobTitle: [
+    '.job-card-list__title',
+    '.job-card-container__link',
     '.base-search-card__title',
     '[data-job-card-container-headline]',
     'h3[dir="ltr"]',
@@ -35,6 +47,9 @@ const SELECTORS = {
 
   // Company name
   companyName: [
+    '.job-card-container__company-name',
+    '.job-card-container__primary-description',
+    '.job-card-container__company-link',
     '.base-search-card__subtitle',
     '.job-search-card__company-name',
     '[data-job-card-container-company-name]',
@@ -43,6 +58,8 @@ const SELECTORS = {
 
   // Job location
   location: [
+    '.job-card-container__metadata-item',
+    '.job-card-container__metadata-wrapper',
     '.job-search-card__location',
     '[data-job-card-container-location]',
     '.location'
@@ -50,17 +67,21 @@ const SELECTORS = {
 
   // Results container
   resultsContainer: [
+    'ul.scaffold-layout__list-container',
+    'ul.jobs-search-results__list',
     '.jobs-search-results__list-item',
     '[data-jobs-search-results__container-id]',
-    '.base-card',
-    'ul.jobs-search-results__list'
+    '.base-card'
   ],
 
   // Job feed container
   feedContainer: [
-    '[data-jobs-search-results__container-id]',
+    '.jobs-search-results-list',
     '.jobs-search-results',
-    '[aria-label*="job"]'
+    '.jobs-search__results-list',
+    '[data-jobs-search-results__container-id]',
+    '[aria-label*="job"]',
+    'main'
   ]
 };
 
@@ -68,20 +89,29 @@ const SELECTORS = {
 // Time Parsing Regex Patterns
 // ============================================
 const TIME_REGEX = {
-  // "Just now" or "1 minute ago"
-  justNow: /just\s+now/i,
+  // "Just now", "now", "posted now", "just posted", "just published"
+  justNow: /just\s+now|^now$|posted\s+now|just\s+posted|just\s+published/i,
+
+  // "X seconds ago" / "Xs"
+  seconds: /(\d+)\s*(?:secs?|seconds?|s)\b(?:\s+ago)?/i,
   
-  // "X minutes ago"
-  minutes: /(\d+)\s*(?:mins?|minutes?)\s+ago/i,
+  // "X minutes ago" / "Xm"
+  minutes: /(\d+)\s*(?:mins?|minutes?|m)\b(?:\s+ago)?/i,
   
-  // "X hours ago"
-  hours: /(\d+)\s*(?:hrs?|hours?)\s+ago/i,
+  // "X hours ago" / "Xh"
+  hours: /(\d+)\s*(?:hrs?|hours?|h)\b(?:\s+ago)?/i,
   
-  // "X days ago"
-  days: /(\d+)\s*(?:days?)\s+ago/i,
+  // "X days ago" / "Xd"
+  days: /(\d+)\s*(?:days?|d)\b(?:\s+ago)?/i,
   
-  // "X weeks ago"
-  weeks: /(\d+)\s*(?:weeks?)\s+ago/i,
+  // "X weeks ago" / "Xw"
+  weeks: /(\d+)\s*(?:weeks?|w)\b(?:\s+ago)?/i,
+
+  // "X months ago" / "Xmo"
+  months: /(\d+)\s*(?:months?|mo)\b(?:\s+ago)?/i,
+
+  // "X years ago" / "Xy"
+  years: /(\d+)\s*(?:years?|y)\b(?:\s+ago)?/i,
   
   // "Just hired" or "Actively hiring"
   activelyHiring: /actively\s+hiring|just\s+hired|urgently\s+hiring/i,
@@ -93,7 +123,7 @@ const TIME_REGEX = {
   specificDate: /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/,
   
   // LinkedIn specific patterns
-  linkedinPatterns: /(\d+)\s*(second|minute|hour|day|week)s?\s+ago/i
+  linkedinPatterns: /(\d+)\s*(second|minute|hour|day|week|m|h|d|w)s?\s+ago/i
 };
 
 // ============================================
@@ -192,13 +222,12 @@ const UI_CONFIG = {
 // Storage Keys
 // ============================================
 const STORAGE_KEYS = {
-  selectedFilter: 'selectedFilter',
-  customMinutes: 'customMinutes',
+  activeRangeId: 'activeRangeId',
+  activeRange: 'activeRange',
   theme: 'theme',
   panelPosition: 'panelPosition',
   collapsedState: 'collapsedState',
   enableAutoScan: 'enableAutoScan',
-  presets: 'presets',
   lastScanTime: 'lastScanTime',
   jobsCache: 'jobsCache'
 };
@@ -207,49 +236,79 @@ const STORAGE_KEYS = {
 // Default Settings
 // ============================================
 const DEFAULT_SETTINGS = {
-  selectedFilter: '2h',
-  customMinutes: 60,
+  activeRangeId: null,
+  activeRange: null,
   theme: 'dark',
   panelPosition: 'bottom-right',
   collapsedState: false,
-  enableAutoScan: true,
-  presets: {
-    superFresh: 30,
-    competitive: 120,
-    todayOnly: 1440
-  }
+  enableAutoScan: true
 };
 
 // ============================================
 // Presets
 // ============================================
-const FILTER_PRESETS = {
-  superFresh: {
-    name: '🔥 Super Fresh',
-    minutes: 30,
-    description: 'Posted in last 30 minutes'
+const TIME_RANGE_FILTERS = [
+  {
+    id: "now",
+    label: "Now",
+    minMinutes: 0,
+    maxMinutes: 1,
+    description: "Just published jobs"
   },
-  competitive: {
-    name: '⚡ Competitive',
-    minutes: 120,
-    description: 'Posted in last 2 hours'
+  {
+    id: "0-10",
+    label: "0–10 min",
+    minMinutes: 0,
+    maxMinutes: 10
   },
-  todayOnly: {
-    name: '🟢 Today Only',
-    minutes: 1440,
-    description: 'Posted today'
+  {
+    id: "10-30",
+    label: "10–30 min",
+    minMinutes: 10,
+    maxMinutes: 30
   },
-  recent: {
-    name: '🟡 Recent',
-    minutes: 360,
-    description: 'Posted in last 6 hours'
+  {
+    id: "30-60",
+    label: "30–60 min",
+    minMinutes: 30,
+    maxMinutes: 60
   },
-  all: {
-    name: '📋 All Jobs',
-    minutes: Infinity,
-    description: 'Show all jobs'
+  {
+    id: "60-90",
+    label: "60–90 min",
+    minMinutes: 60,
+    maxMinutes: 90
+  },
+  {
+    id: "90-120",
+    label: "90–120 min",
+    minMinutes: 90,
+    maxMinutes: 120
+  },
+  {
+    id: "120-150",
+    label: "120–150 min",
+    minMinutes: 120,
+    maxMinutes: 150
+  },
+  {
+    id: "150-180",
+    label: "150–180 min",
+    minMinutes: 150,
+    maxMinutes: 180
   }
-};
+];
+
+// Keep FILTER_PRESETS for backward compatibility but redirect to new range presets where needed
+const FILTER_PRESETS = TIME_RANGE_FILTERS.reduce((acc, current) => {
+  acc[current.id] = {
+    name: current.label,
+    minutes: current.maxMinutes,
+    minMinutes: current.minMinutes,
+    description: current.description || `${current.label} timeframe`
+  };
+  return acc;
+}, {});
 
 // ============================================
 // Keyboard Shortcuts
@@ -290,6 +349,7 @@ if (typeof module !== 'undefined' && module.exports) {
     STORAGE_KEYS,
     DEFAULT_SETTINGS,
     FILTER_PRESETS,
+    TIME_RANGE_FILTERS,
     SHORTCUTS,
     ERRORS,
     LOG_LEVELS

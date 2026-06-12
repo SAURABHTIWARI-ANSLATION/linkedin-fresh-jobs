@@ -45,26 +45,28 @@ class JobObserverManager {
     };
 
     this.mutationObserver = new MutationObserver((mutations) => {
-      // Check if any mutations added new job cards
-      const hasNewCards = mutations.some(mutation => {
-        return Array.from(mutation.addedNodes).some(node =>
-          this.isJobCard(node)
-        );
+      // Check if any mutations added real elements (excluding our own UI elements)
+      const hasRealUpdates = mutations.some(mutation => {
+        return Array.from(mutation.addedNodes).some(node => {
+          if (node.nodeType !== Node.ELEMENT_NODE) return false;
+          try {
+            // Ignore our own badges, dashboard, and filter bar elements
+            return !node.closest?.('[class*="ljf-"]');
+          } catch (e) {
+            return true;
+          }
+        });
       });
 
-      if (hasNewCards) {
+      if (hasRealUpdates) {
         this.debounceScan();
       }
     });
 
-    // Observe the job feed container
-    const feedContainer = safeQuery(SELECTORS.feedContainer);
-    if (feedContainer) {
-      this.mutationObserver.observe(feedContainer, config);
-      logger?.info('MutationObserver attached to feed container');
-    } else {
-      logger?.warn('Could not find feed container for MutationObserver');
-    }
+    // Observe document.body to ensure we capture all React DOM updates page-wide
+    const feedContainer = document.body;
+    this.mutationObserver.observe(feedContainer, config);
+    logger?.info('MutationObserver attached to document.body');
   }
 
   /**
@@ -106,7 +108,7 @@ class JobObserverManager {
     
     return selectorArray.some(selector => {
       try {
-        return node.matches?.(selector);
+        return node.matches?.(selector) || node.querySelector?.(selector);
       } catch (e) {
         return false;
       }
@@ -151,8 +153,10 @@ class JobObserverManager {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       if (this.scanCallback) {
-        const jobs = this.scanCallback();
-        logger?.info(`Debounced scan completed: ${jobs?.length || 0} jobs`);
+        this.lastScanTime = Date.now();
+        Promise.resolve(this.scanCallback()).then(() => {
+          logger?.info('Debounced scan completed');
+        });
       }
     }, this.debounceDelay);
   }
@@ -163,6 +167,7 @@ class JobObserverManager {
   forceScan() {
     clearTimeout(this.debounceTimer);
     if (this.scanCallback) {
+      this.lastScanTime = Date.now();
       return this.scanCallback();
     }
     return [];
@@ -175,7 +180,7 @@ class JobObserverManager {
   setEnabled(enabled) {
     if (enabled && !this.isActive) {
       this.mutationObserver?.observe(
-        safeQuery(SELECTORS.feedContainer) || document.body,
+        document.body,
         { childList: true, subtree: true }
       );
       this.isActive = true;
@@ -250,7 +255,7 @@ class ScrollWatcher {
    * @private
    */
   attachScrollListener() {
-    const handleScroll = throttle(() => {
+    this.handleScroll = throttle(() => {
       const scrollPosition = window.scrollY || document.documentElement.scrollTop;
       const scrollDelta = Math.abs(scrollPosition - this.lastScrollPosition);
 
@@ -269,7 +274,7 @@ class ScrollWatcher {
       }
     }, 200); // Throttle scroll events
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('scroll', this.handleScroll, { passive: true });
     logger?.info('Scroll watcher attached');
   }
 
@@ -289,7 +294,9 @@ class ScrollWatcher {
    */
   destroy() {
     clearTimeout(this.scrollTimeout);
-    // Note: Can't easily remove throttled listener, so just clear refs
+    if (this.handleScroll) {
+      window.removeEventListener('scroll', this.handleScroll);
+    }
     this.scrollCallback = null;
   }
 }
@@ -301,6 +308,7 @@ class PageVisibilityWatcher {
   constructor() {
     this.isVisible = true;
     this.visibilityCallback = null;
+    this.handleVisibilityChange = null;
   }
 
   /**
@@ -308,14 +316,16 @@ class PageVisibilityWatcher {
    * @param {Function} callback - Called on visibility change
    */
   initialize(callback) {
+    this.destroy();
     this.visibilityCallback = callback;
-    document.addEventListener('visibilitychange', () => {
+    this.handleVisibilityChange = () => {
       this.isVisible = !document.hidden;
       if (this.visibilityCallback) {
         this.visibilityCallback(this.isVisible);
       }
       logger?.info(`Page visibility changed: ${this.isVisible ? 'visible' : 'hidden'}`);
-    });
+    };
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
   /**
@@ -324,6 +334,17 @@ class PageVisibilityWatcher {
    */
   isPageVisible() {
     return this.isVisible;
+  }
+
+  /**
+   * Cleanup
+   */
+  destroy() {
+    if (this.handleVisibilityChange) {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+      this.handleVisibilityChange = null;
+    }
+    this.visibilityCallback = null;
   }
 }
 

@@ -38,9 +38,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Listen for tab updates
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url?.includes('linkedin.com/jobs')) {
-    console.log('[Background] LinkedIn Jobs page loaded:', tab.url);
-    // Optional: Send notification to content script
+  if (tab.url && tab.url.includes('linkedin.com')) {
+    if (changeInfo.url || changeInfo.status === 'complete') {
+      console.log('[Background] Tab updated:', tab.url);
+      chrome.tabs.sendMessage(tabId, {
+        type: 'URL_CHANGED',
+        url: tab.url
+      }, () => {
+        // Content script might not be loaded yet on this tab, safe to ignore.
+        void chrome.runtime.lastError;
+      });
+    }
   }
 });
 

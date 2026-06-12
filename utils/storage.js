@@ -8,7 +8,7 @@ class StorageManager {
    * Initialize storage manager
    */
   constructor() {
-    this.storage = chrome?.storage?.sync || {};
+    this.storage = (typeof chrome !== 'undefined' && chrome.storage?.sync) ? chrome.storage.sync : {};
     this.cache = {};
     this.listeners = [];
   }
@@ -211,7 +211,7 @@ class StorageManager {
    * @returns {Function} Unsubscribe function
    */
   onChanged(callback) {
-    if (!chrome?.storage?.onChanged) {
+    if (typeof chrome === 'undefined' || !chrome.storage?.onChanged) {
       logger?.warn('Chrome storage change listener not available');
       return () => {};
     }

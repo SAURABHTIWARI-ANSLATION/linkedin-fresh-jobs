@@ -5,8 +5,8 @@
 
 class FilterEngine {
   constructor() {
-    this.currentFilter = '2h';
-    this.customMinutes = 120;
+    this.activeRangeId = null;
+    this.activeRange = null;
     this.jobs = [];
   }
 
@@ -17,7 +17,7 @@ class FilterEngine {
    * @returns {number} Freshness score 0-100
    */
   calculateFreshnessScore(minutes) {
-    if (minutes < 0) {
+    if (minutes === null || minutes < 0 || typeof minutes !== 'number') {
       return 0; // Invalid or unparseable time
     }
 
@@ -75,45 +75,69 @@ class FilterEngine {
   }
 
   /**
+   * Check if a job's time is in range
+   */
+  isJobInTimeRange(job, range) {
+    if (!job || !range) return false;
+
+    const minutesAgo = job.minutesAgo;
+
+    if (typeof minutesAgo !== "number") {
+      return false;
+    }
+
+    return minutesAgo >= range.minMinutes && minutesAgo < range.maxMinutes;
+  }
+
+  /**
+   * Check if job is published "now"
+   */
+  isNowJob(job) {
+    return job.isNow === true || job.minutesAgo === 0;
+  }
+
+  /**
    * Check if a job should be shown based on current filter
-   * @param {number} minutes - Minutes since job was posted
-   * @param {string} filter - Filter name (e.g., '30m', '1h', 'custom')
-   * @param {number} customMinutes - Custom minutes if filter is 'custom'
+   * @param {Object} job - Job data
+   * @param {Object|string} activeRange - Selected range ID or object
    * @returns {boolean} True if job should be shown
    */
-  shouldShowJob(minutes, filter = this.currentFilter, customMinutes = this.customMinutes) {
-    if (minutes < 0) {
-      return true; // Show jobs we can't parse time for
+  shouldShowJob(job, activeRange = this.activeRange) {
+    let range = activeRange;
+    if (typeof activeRange === 'string') {
+      if (activeRange === 'custom') {
+        range = this.activeRange;
+      } else {
+        range = TIME_RANGE_FILTERS.find(r => r.id === activeRange) || null;
+      }
     }
 
-    // Get the time window in minutes
-    let timeWindow = FRESHNESS_CONFIG.timeWindows[filter];
-    
-    if (filter === 'custom') {
-      timeWindow = customMinutes;
-    } else if (timeWindow === undefined) {
-      logger?.warn('Unknown filter:', filter);
-      return true; // Show by default if unknown filter
+    if (!range) return true; // Reset / null shows all jobs
+
+    if (range.id === "now") {
+      return this.isNowJob(job);
     }
 
-    // Check if job is within time window
-    return minutes <= timeWindow;
+    return this.isJobInTimeRange(job, range);
   }
 
   /**
    * Filter jobs array based on criteria
-   * @param {Array<Object>} jobs - Jobs to filter
-   * @param {string} filter - Filter name
-   * @param {number} customMinutes - Custom minutes if filter is 'custom'
-   * @returns {Array<Object>} Filtered jobs
    */
-  filterJobs(jobs, filter = this.currentFilter, customMinutes = this.customMinutes) {
+  filterJobs(jobs, rangeId = this.activeRangeId) {
     if (!Array.isArray(jobs)) {
       return [];
     }
 
+    let range = null;
+    if (rangeId === 'custom') {
+      range = this.activeRange;
+    } else {
+      range = TIME_RANGE_FILTERS.find(r => r.id === rangeId) || null;
+    }
+
     return jobs.filter(job => {
-      return this.shouldShowJob(job.minutes, filter, customMinutes);
+      return this.shouldShowJob(job, range);
     });
   }
 
@@ -231,38 +255,12 @@ class FilterEngine {
         averageMinutes: 0,
         newestMinutes: 0,
         oldestMinutes: 0,
-        countByCategory: {
-          veryHot: 0,
-          hot: 0,
-          fresh: 0,
-          recent: 0,
-          stale: 0,
-          ancient: 0
-        }
+        countByCategory: this.getTimeRangeCounts([])
       };
     }
 
     const scores = jobs.map(j => j.score);
-    const minutes = jobs.filter(j => j.minutes >= 0).map(j => j.minutes);
-    const categories = {
-      veryHot: 0,
-      hot: 0,
-      fresh: 0,
-      recent: 0,
-      stale: 0,
-      ancient: 0
-    };
-
-    jobs.forEach(job => {
-      const label = this.getFreshnessLabel(job.score);
-      const key = label.text.toLowerCase();
-      if (key === 'very hot') categories.veryHot++;
-      else if (key === 'hot') categories.hot++;
-      else if (key === 'fresh') categories.fresh++;
-      else if (key === 'recent') categories.recent++;
-      else if (key === 'stale') categories.stale++;
-      else if (key === 'ancient') categories.ancient++;
-    });
+    const minutes = jobs.filter(j => typeof j.minutesAgo === 'number').map(j => j.minutesAgo);
 
     return {
       total: jobs.length,
@@ -270,7 +268,7 @@ class FilterEngine {
       averageMinutes: minutes.length > 0 ? minutes.reduce((a, b) => a + b, 0) / minutes.length : 0,
       newestMinutes: minutes.length > 0 ? Math.min(...minutes) : 0,
       oldestMinutes: minutes.length > 0 ? Math.max(...minutes) : 0,
-      countByCategory: categories
+      countByCategory: this.getTimeRangeCounts(jobs)
     };
   }
 
@@ -281,47 +279,93 @@ class FilterEngine {
    */
   enrichJobs(jobs) {
     return jobs.map(job => {
-      const score = this.calculateFreshnessScore(job.minutes);
+      const score = this.calculateFreshnessScore(job.minutesAgo);
       const label = this.getFreshnessLabel(score);
 
       return {
         ...job,
         score,
         label,
-        formattedTime: timeParser.formatTime(job.minutes),
+        formattedTime: timeParser.formatTime(job.minutesAgo),
         isVeryFresh: score >= FRESHNESS_CONFIG.scoreThresholds.hot
       };
     });
   }
 
   /**
+   * Get exact time range counts for dashboard and UI
+   */
+  getTimeRangeCounts(jobs) {
+    const counts = {
+      now: 0,
+      "0-10": 0,
+      "10-30": 0,
+      "30-60": 0,
+      "60-90": 0,
+      "90-120": 0,
+      "120-150": 0,
+      "150-180": 0,
+      older: 0,
+      unknown: 0
+    };
+
+    if (!Array.isArray(jobs)) return counts;
+
+    jobs.forEach(job => {
+      const minutesAgo = job.minutesAgo;
+
+      if (minutesAgo === null || typeof minutesAgo !== 'number') {
+        counts.unknown++;
+      } else if (job.isNow === true || minutesAgo === 0) {
+        counts.now++;
+      } else if (minutesAgo > 0 && minutesAgo < 10) {
+        counts["0-10"]++;
+      } else if (minutesAgo >= 10 && minutesAgo < 30) {
+        counts["10-30"]++;
+      } else if (minutesAgo >= 30 && minutesAgo < 60) {
+        counts["30-60"]++;
+      } else if (minutesAgo >= 60 && minutesAgo < 90) {
+        counts["60-90"]++;
+      } else if (minutesAgo >= 90 && minutesAgo < 120) {
+        counts["90-120"]++;
+      } else if (minutesAgo >= 120 && minutesAgo < 150) {
+        counts["120-150"]++;
+      } else if (minutesAgo >= 150 && minutesAgo < 180) {
+        counts["150-180"]++;
+      } else {
+        counts.older++;
+      }
+    });
+
+    return counts;
+  }
+
+  /**
    * Get recommended filter based on jobs available
-   * @param {Array<Object>} jobs - Available jobs
-   * @returns {string} Recommended filter
    */
   getRecommendedFilter(jobs) {
-    if (jobs.length === 0) return 'all';
-
-    // Count jobs in different time windows
-    const countIn30m = jobs.filter(j => j.minutes <= 30).length;
-    const countIn2h = jobs.filter(j => j.minutes <= 120).length;
-    const countIn24h = jobs.filter(j => j.minutes <= 1440).length;
-
-    // Recommend the tightest window that still shows >5 jobs
-    if (countIn30m >= 5) return '30m';
-    if (countIn2h >= 5) return '2h';
-    if (countIn24h >= 5) return '24h';
     return 'all';
   }
 
   /**
-   * Set current filter
-   * @param {string} filter - Filter name
-   * @param {number} customMinutes - Custom minutes if applicable
+   * Set current filter range
+   * @param {string} rangeId - Filter range ID
    */
-  setFilter(filter, customMinutes = 120) {
-    this.currentFilter = filter;
-    this.customMinutes = customMinutes;
+  setFilter(rangeId, customMin = null, customMax = null) {
+    this.activeRangeId = rangeId;
+    if (rangeId === 'custom') {
+      const minMinutes = customMin !== null ? Number(customMin) : 0;
+      const maxMinutes = customMax !== null ? Number(customMax) : 60;
+      this.activeRange = {
+        id: 'custom',
+        label: `Custom (${minMinutes}-${maxMinutes}m)`,
+        minMinutes,
+        maxMinutes,
+        description: `Custom range: ${minMinutes} to ${maxMinutes} minutes`
+      };
+    } else {
+      this.activeRange = TIME_RANGE_FILTERS.find(r => r.id === rangeId) || null;
+    }
   }
 
   /**
@@ -329,14 +373,15 @@ class FilterEngine {
    * @returns {Object} Filter information
    */
   getCurrentFilterInfo() {
-    const timeWindow = FRESHNESS_CONFIG.timeWindows[this.currentFilter] || this.customMinutes;
-    const preset = FILTER_PRESETS[this.currentFilter];
+    const range = this.activeRange;
 
     return {
-      name: this.currentFilter,
-      minutes: timeWindow,
-      description: preset?.description || `Last ${timeWindow} minutes`,
-      isCustom: this.currentFilter === 'custom'
+      name: this.activeRangeId || 'all',
+      minutes: range ? range.maxMinutes : Infinity,
+      minMinutes: range ? range.minMinutes : 0,
+      maxMinutes: range ? range.maxMinutes : Infinity,
+      description: range ? (range.description || `${range.label} range`) : 'All jobs',
+      isCustom: this.activeRangeId === 'custom'
     };
   }
 }

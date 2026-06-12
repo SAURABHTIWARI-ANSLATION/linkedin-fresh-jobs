@@ -77,12 +77,17 @@ function safeQuery(selectors, context = document) {
  */
 function safeQueryAll(selectors, context = document) {
   const selectorArray = Array.isArray(selectors) ? selectors : [selectors];
+  const allElements = [];
+  const seen = new Set();
   
   for (const selector of selectorArray) {
     try {
       const elements = context.querySelectorAll(selector);
-      if (elements.length > 0) {
-        return Array.from(elements);
+      for (const el of elements) {
+        if (!seen.has(el)) {
+          seen.add(el);
+          allElements.push(el);
+        }
       }
     } catch (e) {
       // Invalid selector, try next
@@ -90,7 +95,7 @@ function safeQueryAll(selectors, context = document) {
     }
   }
   
-  return [];
+  return allElements;
 }
 
 /**

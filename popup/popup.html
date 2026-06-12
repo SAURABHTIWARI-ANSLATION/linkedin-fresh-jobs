@@ -22,26 +22,21 @@
       <!-- Quick Filters -->
       <div class="section">
         <div class="section-title">Quick Presets</div>
-        <div class="preset-buttons">
-          <button class="preset-btn" data-preset="superFresh">
-            <span class="preset-emoji">🔥</span>
-            <span class="preset-name">Super Fresh</span>
-            <span class="preset-time">30m</span>
-          </button>
-          <button class="preset-btn" data-preset="competitive">
-            <span class="preset-emoji">⚡</span>
-            <span class="preset-name">Competitive</span>
-            <span class="preset-time">2h</span>
-          </button>
-          <button class="preset-btn" data-preset="todayOnly">
-            <span class="preset-emoji">🟢</span>
-            <span class="preset-name">Today</span>
-            <span class="preset-time">24h</span>
-          </button>
-          <button class="preset-btn" data-preset="all">
-            <span class="preset-emoji">📋</span>
-            <span class="preset-name">All</span>
-            <span class="preset-time">∞</span>
+        <div class="preset-buttons" id="presetButtonsContainer" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Custom Range Filter -->
+      <div class="section">
+        <div class="section-title">Custom Range Filter</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="number" id="customMinInput" class="select-control" style="width: 70px; margin-top: 0; padding: 6px;" placeholder="Min" min="0" value="0">
+          <span style="font-size: 13px;">to</span>
+          <input type="number" id="customMaxInput" class="select-control" style="width: 70px; margin-top: 0; padding: 6px;" placeholder="Max" min="0" value="60">
+          <span style="font-size: 13px;">min</span>
+          <button id="applyCustomBtn" class="footer-btn" style="flex-grow: 1; padding: 6px 12px; margin-top: 0; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">
+            Apply
           </button>
         </div>
       </div>
@@ -52,8 +47,8 @@
         <div class="current-filter" id="currentFilter">
           <span class="filter-icon">🎯</span>
           <span class="filter-info">
-            <span class="filter-name" id="filterName">2 hours</span>
-            <span class="filter-desc" id="filterDesc">Showing fresh jobs</span>
+            <span class="filter-name" id="filterName">Show All</span>
+            <span class="filter-desc" id="filterDesc">Showing all jobs</span>
           </span>
         </div>
       </div>
@@ -61,7 +56,7 @@
       <!-- Statistics -->
       <div class="section">
         <div class="section-title">Statistics</div>
-        <div class="stats-grid">
+        <div class="stats-grid" id="statsGridContainer">
           <div class="stat-card">
             <div class="stat-label">Total</div>
             <div class="stat-value" id="statTotal">—</div>
@@ -71,12 +66,12 @@
             <div class="stat-value" id="statFiltered">—</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Hot</div>
-            <div class="stat-value" id="statHot">—</div>
+            <div class="stat-label">Now</div>
+            <div class="stat-value" id="statNow">—</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Fresh</div>
-            <div class="stat-value" id="statFresh">—</div>
+            <div class="stat-label">0–10m</div>
+            <div class="stat-value" id="stat0to10">—</div>
           </div>
         </div>
       </div>
@@ -110,23 +105,6 @@
             <input type="checkbox" id="autoScanToggle" class="toggle-input">
             <label for="autoScanToggle" class="toggle-label"></label>
           </div>
-        </div>
-      </div>
-
-      <!-- Custom Time Filter -->
-      <div class="section">
-        <div class="section-title">Custom Filter</div>
-        <div class="custom-time-input">
-          <input 
-            type="number" 
-            id="customMinutes" 
-            min="1" 
-            max="10080" 
-            value="120"
-            class="input-control"
-            placeholder="Minutes"
-          >
-          <button id="applyCustomBtn" class="btn btn-primary">Apply</button>
         </div>
       </div>
     </div>

@@ -42,6 +42,9 @@ class PopupManager {
    */
   async loadSettings() {
     try {
+      // Render dynamic preset buttons
+      this.renderPresets();
+
       const settings = await storage.getAll();
 
       // Theme
@@ -58,41 +61,101 @@ class PopupManager {
 
       // Auto scan
       const autoScanToggle = document.getElementById('autoScanToggle');
-      if (autoScanToggle && settings.enableAutoScan !== undefined) {
-        autoScanToggle.checked = settings.enableAutoScan;
-      }
-
-      // Custom minutes
-      const customMinutes = document.getElementById('customMinutes');
-      if (customMinutes && settings.customMinutes) {
-        customMinutes.value = settings.customMinutes;
+      if (autoScanToggle) {
+        autoScanToggle.checked = settings.enableAutoScan !== false;
       }
 
       // Update current filter display
-      const filter = settings.selectedFilter || '2h';
-      this.updateFilterDisplay(filter);
+      const filter = settings.activeRangeId || 'all';
+      const customMin = settings.customMin !== undefined ? settings.customMin : 0;
+      const customMax = settings.customMax !== undefined ? settings.customMax : 60;
+      
+      const customMinInput = document.getElementById('customMinInput');
+      const customMaxInput = document.getElementById('customMaxInput');
+      if (customMinInput) customMinInput.value = customMin;
+      if (customMaxInput) customMaxInput.value = customMax;
+
+      this.updateFilterDisplay(filter, customMin, customMax);
     } catch (error) {
       logger?.error('Failed to load settings', error);
     }
   }
 
   /**
-   * Update filter display
+   * Render preset buttons dynamically
    */
-  updateFilterDisplay(filter) {
-    const preset = FILTER_PRESETS[filter];
+  renderPresets() {
+    const container = document.getElementById('presetButtonsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Add Range Buttons dynamically
+    TIME_RANGE_FILTERS.forEach(range => {
+      const btn = document.createElement('button');
+      btn.className = 'preset-btn';
+      btn.dataset.preset = range.id;
+      btn.style.display = 'flex';
+      btn.style.flexDirection = 'column';
+      btn.style.alignItems = 'center';
+      btn.style.justifyContent = 'center';
+      btn.style.padding = '8px';
+      
+      const emoji = range.id === 'now' ? '🔥' :
+                    range.id === '0-10' ? '🔥' :
+                    range.id === '10-30' ? '⚡' :
+                    range.id === '30-60' ? '🟢' :
+                    range.id === '60-90' ? '🟡' :
+                    range.id === '90-120' ? '🟠' :
+                    range.id === '120-150' ? '🔵' : '🟣';
+
+      btn.innerHTML = `
+        <span class="preset-emoji">${emoji}</span>
+        <span class="preset-name">${range.label}</span>
+      `;
+      btn.addEventListener('click', () => this.applyPreset(range.id));
+      container.appendChild(btn);
+    });
+
+    // Also add a Show All/Reset button
+    const btnAll = document.createElement('button');
+    btnAll.className = 'preset-btn';
+    btnAll.dataset.preset = 'all';
+    btnAll.style.display = 'flex';
+    btnAll.style.flexDirection = 'column';
+    btnAll.style.alignItems = 'center';
+    btnAll.style.justifyContent = 'center';
+    btnAll.style.padding = '8px';
+    btnAll.innerHTML = `
+      <span class="preset-emoji">📋</span>
+      <span class="preset-name">Show All</span>
+    `;
+    btnAll.addEventListener('click', () => this.applyPreset('all'));
+    container.appendChild(btnAll);
+  }
+
+  updateFilterDisplay(filter, customMin = null, customMax = null) {
     const filterName = document.getElementById('filterName');
     const filterDesc = document.getElementById('filterDesc');
 
-    if (filterName && preset) {
-      filterName.textContent = preset.name.replace(/[🔥⚡🟢📋]/g, '').trim();
-      filterDesc.textContent = preset.description;
+    if (filter === 'custom') {
+      const min = customMin !== null ? customMin : 0;
+      const max = customMax !== null ? customMax : 60;
+      if (filterName) {
+        filterName.textContent = `Custom (${min}-${max}m)`;
+        if (filterDesc) filterDesc.textContent = `Custom range: ${min} to ${max} minutes`;
+      }
+    } else {
+      const range = TIME_RANGE_FILTERS.find(r => r.id === filter);
+      if (filterName) {
+        filterName.textContent = range ? range.label : 'Show All';
+        if (filterDesc) filterDesc.textContent = range ? (range.description || `${range.label} range`) : 'Showing all jobs';
+      }
     }
 
     // Update active preset button
     document.querySelectorAll('.preset-btn').forEach(btn => {
       const preset = btn.dataset.preset;
-      if (preset === filter) {
+      if (preset === filter || (filter === 'all' && preset === 'all')) {
         btn.classList.add('active');
       } else {
         btn.classList.remove('active');
@@ -104,47 +167,59 @@ class PopupManager {
    * Setup event listeners
    */
   setupEventListeners() {
-    // Preset buttons
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => this.applyPreset(btn.dataset.preset));
-    });
-
     // Theme select
     const themeSelect = document.getElementById('themeSelect');
     if (themeSelect) {
-      themeSelect.addEventListener('change', (e) => {
-        storage.setValue('theme', e.target.value);
-        this.sendMessageToContent({ type: 'THEME_CHANGED', theme: e.target.value });
+      themeSelect.addEventListener('change', async (e) => {
+        try {
+          await storage.setValue('theme', e.target.value);
+          await this.sendMessageToContent({ type: 'THEME_CHANGED', theme: e.target.value });
+        } catch (error) {
+          logger?.error('Failed to apply theme', error);
+        }
       });
     }
 
     // Position select
     const positionSelect = document.getElementById('positionSelect');
     if (positionSelect) {
-      positionSelect.addEventListener('change', (e) => {
-        storage.setValue('panelPosition', e.target.value);
-        this.sendMessageToContent({ type: 'POSITION_CHANGED', position: e.target.value });
+      positionSelect.addEventListener('change', async (e) => {
+        try {
+          await storage.setValue('panelPosition', e.target.value);
+          await this.sendMessageToContent({ type: 'POSITION_CHANGED', position: e.target.value });
+        } catch (error) {
+          logger?.error('Failed to apply position change', error);
+        }
       });
     }
 
     // Auto scan toggle
     const autoScanToggle = document.getElementById('autoScanToggle');
     if (autoScanToggle) {
-      autoScanToggle.addEventListener('change', (e) => {
-        storage.setValue('enableAutoScan', e.target.checked);
+      autoScanToggle.addEventListener('change', async (e) => {
+        try {
+          await storage.setValue('enableAutoScan', e.target.checked);
+          await this.sendMessageToContent({ type: 'AUTOSCAN_CHANGED', enabled: e.target.checked });
+        } catch (error) {
+          logger?.error('Failed to change auto-scan setting', error);
+        }
       });
-    }
-
-    // Custom time apply button
-    const applyCustomBtn = document.getElementById('applyCustomBtn');
-    if (applyCustomBtn) {
-      applyCustomBtn.addEventListener('click', () => this.applyCustomTime());
     }
 
     // Refresh button
     const refreshBtn = document.getElementById('refreshBtn');
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => this.requestScan());
+    }
+
+    // Custom range filter apply button
+    const applyCustomBtn = document.getElementById('applyCustomBtn');
+    if (applyCustomBtn) {
+      applyCustomBtn.addEventListener('click', async () => {
+        const minVal = parseInt(document.getElementById('customMinInput').value) || 0;
+        const maxVal = parseInt(document.getElementById('customMaxInput').value) || 60;
+        await this.applyCustomRange(minVal, maxVal);
+      });
     }
 
     // Shortcuts button
@@ -171,25 +246,54 @@ class PopupManager {
   }
 
   /**
+   * Apply custom range filter
+   */
+  async applyCustomRange(min, max) {
+    try {
+      if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max <= min) {
+        this.showError('Invalid custom range');
+        return;
+      }
+
+      // Save filter details
+      await storage.setValue('activeRangeId', 'custom');
+      await storage.setValue('customMin', min);
+      await storage.setValue('customMax', max);
+
+      // Update display
+      this.updateFilterDisplay('custom', min, max);
+
+      // Notify content script
+      await this.sendMessageToContent({
+        type: 'APPLY_FILTER',
+        filter: 'custom',
+        customMin: min,
+        customMax: max
+      });
+
+      logger?.info('Custom preset applied', { min, max });
+    } catch (error) {
+      logger?.error('Failed to apply custom preset', error);
+    }
+  }
+
+  /**
    * Apply preset filter
    */
   async applyPreset(presetName) {
     try {
-      const preset = FILTER_PRESETS[presetName];
-      if (!preset) return;
+      const activeRangeId = presetName === 'all' ? null : presetName;
 
       // Save filter
-      await storage.setValue('selectedFilter', presetName);
-      await storage.setValue('customMinutes', preset.minutes);
+      await storage.setValue('activeRangeId', activeRangeId);
 
       // Update display
       this.updateFilterDisplay(presetName);
 
       // Notify content script
-      this.sendMessageToContent({
+      await this.sendMessageToContent({
         type: 'APPLY_FILTER',
-        filter: presetName,
-        minutes: preset.minutes
+        filter: activeRangeId
       });
 
       logger?.info('Preset applied:', presetName);
@@ -199,45 +303,38 @@ class PopupManager {
   }
 
   /**
-   * Apply custom time filter
+   * Request page scan
    */
-  async applyCustomTime() {
+  async requestScan() {
     try {
-      const input = document.getElementById('customMinutes');
-      const minutes = parseInt(input.value, 10);
-
-      if (isNaN(minutes) || minutes < 1) {
-        this.showError('Please enter a valid time in minutes');
-        return;
-      }
-
-      // Save filter
-      await storage.setValue('selectedFilter', 'custom');
-      await storage.setValue('customMinutes', minutes);
-
-      // Update display
-      this.updateFilterDisplay('custom');
-
-      // Notify content script
-      this.sendMessageToContent({
-        type: 'APPLY_FILTER',
-        filter: 'custom',
-        minutes: minutes
-      });
-
-      logger?.info('Custom filter applied:', minutes);
+      await this.sendMessageToContent({ type: 'PERFORM_SCAN' });
+      logger?.info('Scan requested');
     } catch (error) {
-      logger?.error('Failed to apply custom time', error);
-      this.showError('Failed to apply custom time');
+      logger?.error('Failed to request scan', error);
     }
   }
 
   /**
-   * Request page scan
+   * Update connection status indicator
    */
-  requestScan() {
-    this.sendMessageToContent({ type: 'PERFORM_SCAN' });
-    logger?.info('Scan requested');
+  updateConnectionStatus(status, text) {
+    const dot = document.getElementById('connectionStatus');
+    const label = document.getElementById('statusText');
+    if (!dot || !label) return;
+
+    label.textContent = text;
+    dot.className = 'status-indicator';
+
+    if (status === 'connected') {
+      dot.style.color = '#00dd00'; // Green
+      label.style.color = '';
+    } else if (status === 'warning') {
+      dot.style.color = '#ff8c00'; // Orange
+      label.style.color = '#ff8c00';
+    } else {
+      dot.style.color = '#ff4444'; // Red
+      label.style.color = '#ff4444';
+    }
   }
 
   /**
@@ -247,18 +344,38 @@ class PopupManager {
     try {
       const response = await this.sendMessageToContent({ type: 'GET_STATE' });
       if (response) {
+        if (!response.isInitialized) {
+          this.updateConnectionStatus('warning', 'Navigate to Jobs');
+          document.getElementById('statTotal').textContent = '—';
+          document.getElementById('statFiltered').textContent = '—';
+          document.getElementById('statNow').textContent = '—';
+          document.getElementById('stat0to10').textContent = '—';
+          return;
+        }
+
+        this.updateConnectionStatus('connected', 'Connected');
+        const autoScanToggle = document.getElementById('autoScanToggle');
+        if (autoScanToggle && typeof response.enableAutoScan === 'boolean') {
+          autoScanToggle.checked = response.enableAutoScan;
+        }
         document.getElementById('statTotal').textContent =
-          response.totalJobs || '—';
+          response.totalJobs !== undefined && response.totalJobs !== null ? response.totalJobs : '—';
         document.getElementById('statFiltered').textContent =
-          response.filteredJobs || '—';
-        document.getElementById('statHot').textContent =
-          response.stats?.countByCategory?.hot || '—';
-        document.getElementById('statFresh').textContent =
-          response.stats?.countByCategory?.fresh || '—';
+          response.filteredJobs !== undefined && response.filteredJobs !== null ? response.filteredJobs : '—';
+        document.getElementById('statNow').textContent =
+          response.stats?.countByCategory?.now !== undefined && response.stats?.countByCategory?.now !== null ? response.stats.countByCategory.now : '—';
+        document.getElementById('stat0to10').textContent =
+          response.stats?.countByCategory?.['0-10'] !== undefined && response.stats?.countByCategory?.['0-10'] !== null ? response.stats.countByCategory['0-10'] : '—';
+      } else {
+        this.updateConnectionStatus('disconnected', 'Disconnected');
       }
     } catch (error) {
-      // Content script might not be ready yet
       logger?.debug('Could not fetch stats:', error.message);
+      this.updateConnectionStatus('disconnected', 'Open LinkedIn');
+      document.getElementById('statTotal').textContent = '—';
+      document.getElementById('statFiltered').textContent = '—';
+      document.getElementById('statNow').textContent = '—';
+      document.getElementById('stat0to10').textContent = '—';
     }
   }
 

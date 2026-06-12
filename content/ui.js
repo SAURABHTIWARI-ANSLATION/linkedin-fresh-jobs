@@ -7,9 +7,10 @@ class UIManager {
   constructor() {
     this.filterBar = null;
     this.filterButtons = new Map();
-    this.currentFilter = '2h';
+    this.activeRangeId = null;
     this.theme = 'dark';
     this.highlightedJobs = new WeakSet();
+    this.highlightedJobsCount = 0;
   }
 
   /**
@@ -34,21 +35,17 @@ class UIManager {
     const title = createElement('div', { className: 'ljf-filter-title' }, '🔍 Fresh Jobs');
     bar.appendChild(title);
 
-    // Filter buttons
-    const filterOptions = ['30m', '1h', '2h', '3h', '6h', '12h', '24h', 'all', 'custom'];
-    filterOptions.forEach(filterName => {
-      const preset = FILTER_PRESETS[filterName];
-      const label = preset?.name || filterName.toUpperCase();
-      
+    // Filter range buttons
+    TIME_RANGE_FILTERS.forEach(range => {
       const btn = createElement('button', {
         className: 'ljf-filter-btn',
-        id: `ljf-filter-${filterName}`,
-        title: preset?.description || ''
-      }, label);
+        id: `ljf-filter-${range.id}`,
+        title: range.description || `${range.label} range`
+      }, range.label);
 
-      btn.addEventListener('click', () => this.handleFilterClick(filterName));
+      btn.addEventListener('click', () => this.handleFilterClick(range.id));
       bar.appendChild(btn);
-      this.filterButtons.set(filterName, btn);
+      this.filterButtons.set(range.id, btn);
     });
 
     // Reset button
@@ -60,6 +57,7 @@ class UIManager {
 
     resetBtn.addEventListener('click', () => this.handleResetClick());
     bar.appendChild(resetBtn);
+    this.filterButtons.set('reset', resetBtn);
 
     // Settings button
     const settingsBtn = createElement('button', {
@@ -87,6 +85,7 @@ class UIManager {
     // Create and inject new filter bar
     this.filterBar = this.createFilterBar();
     document.body.insertBefore(this.filterBar, document.body.firstChild);
+    this.updateFilterButtonStates();
 
     // Add margin to body to account for fixed filter bar
     document.body.style.paddingTop = '48px';
@@ -96,25 +95,25 @@ class UIManager {
 
   /**
    * Handle filter button click
-   * @param {string} filterName - Filter name
+   * @param {string} rangeId - Range ID
    */
-  handleFilterClick(filterName) {
-    this.currentFilter = filterName;
+  handleFilterClick(rangeId) {
+    this.activeRangeId = rangeId;
     this.updateFilterButtonStates();
 
     // Dispatch event for content script to handle
     window.dispatchEvent(new CustomEvent('ljf-filter-changed', {
-      detail: { filter: filterName }
+      detail: { rangeId }
     }));
 
-    logger?.info('Filter changed to:', filterName);
+    logger?.info('Filter changed to:', rangeId);
   }
 
   /**
    * Handle reset button click
    */
   handleResetClick() {
-    this.currentFilter = '2h';
+    this.activeRangeId = null;
     this.updateFilterButtonStates();
 
     window.dispatchEvent(new CustomEvent('ljf-filter-reset', {}));
@@ -133,11 +132,42 @@ class UIManager {
    * Update filter button active states
    */
   updateFilterButtonStates() {
-    this.filterButtons.forEach((btn, filterName) => {
-      if (filterName === this.currentFilter) {
-        addClass(btn, 'active');
+    this.filterButtons.forEach((btn, id) => {
+      if (id === 'reset') {
+        if (this.activeRangeId === null) {
+          addClass(btn, 'active');
+        } else {
+          removeClass(btn, 'active');
+        }
       } else {
-        removeClass(btn, 'active');
+        if (id === this.activeRangeId) {
+          addClass(btn, 'active');
+        } else {
+          removeClass(btn, 'active');
+        }
+      }
+    });
+  }
+
+  /**
+   * Update counts displayed on filter buttons
+   */
+  updateFilterCounts(counts) {
+    if (!counts) return;
+
+    // Now
+    const nowBtn = this.filterButtons.get('now');
+    if (nowBtn) {
+      nowBtn.textContent = `Now (${counts.now || 0})`;
+    }
+
+    // Ranges
+    const ranges = ["0-10", "10-30", "30-60", "60-90", "90-120", "120-150", "150-180"];
+    ranges.forEach(rangeId => {
+      const btn = this.filterButtons.get(rangeId);
+      if (btn) {
+        const range = TIME_RANGE_FILTERS.find(r => r.id === rangeId);
+        btn.textContent = `${range.label} (${counts[rangeId] || 0})`;
       }
     });
   }
@@ -147,6 +177,8 @@ class UIManager {
    * @param {Array<Object>} jobs - Jobs to highlight
    */
   highlightFreshJobs(jobs) {
+    this.highlightedJobsCount = 0;
+
     jobs.forEach(job => {
       if (!job.element) return;
 
@@ -158,23 +190,30 @@ class UIManager {
         removeClass(job.element, 'ljf-fresh');
         removeClass(job.element, 'ljf-recent');
         removeClass(job.element, 'ljf-stale');
+        
+        removeClass(job.element, 'ljf-range-now');
+        removeClass(job.element, 'ljf-range-0-10');
+        removeClass(job.element, 'ljf-range-10-30');
+        removeClass(job.element, 'ljf-range-30-60');
+        removeClass(job.element, 'ljf-range-60-90');
+        removeClass(job.element, 'ljf-range-90-120');
+        removeClass(job.element, 'ljf-range-120-150');
+        removeClass(job.element, 'ljf-range-150-180');
+        removeClass(job.element, 'ljf-range-unknown');
+        removeClass(job.element, 'ljf-range-older');
 
-        // Add new classes
+        // Add base class
         addClass(job.element, 'ljf-job-card');
 
-        // Add freshness class
-        const label = job.label;
-        if (label) {
-          const freshnessClass = `ljf-${label.text.toLowerCase()}`;
-          addClass(job.element, freshnessClass);
-        }
+        // Add badge and card border highlight class based on the badge info class
+        const badgeInfo = this.getBadgeInfoForJob(job);
+        addClass(job.element, `ljf-range-${badgeInfo.class}`);
 
-        // Add badge if not already present
-        if (!job.element.querySelector('.ljf-badge')) {
-          this.addFreshnessBadge(job);
-        }
+        // Add badge
+        this.addFreshnessBadge(job);
 
         this.highlightedJobs.add(job.element);
+        this.highlightedJobsCount++;
       } catch (error) {
         logger?.error('Error highlighting job', error);
       }
@@ -185,32 +224,74 @@ class UIManager {
    * Add freshness badge to job card
    * @param {Object} job - Job object
    */
+  getBadgeInfoForJob(job) {
+    const minutes = job.minutesAgo;
+    
+    if (minutes === null || typeof minutes !== 'number') {
+      return { text: '❔ UNKNOWN', class: 'unknown', style: { backgroundColor: '#999999', color: '#ffffff' } };
+    }
+    
+    if (job.isNow === true || minutes === 0) {
+      return { text: '🔥 JUST PUBLISHED', class: 'now', style: { backgroundColor: '#ff4444', color: '#ffffff', fontWeight: 'bold' } };
+    }
+    if (minutes > 0 && minutes < 10) {
+      return { text: '🔥 0–10 MIN', class: '0-10', style: { backgroundColor: '#ff4444', color: '#ffffff' } };
+    }
+    if (minutes >= 10 && minutes < 30) {
+      return { text: '⚡ 10–30 MIN', class: '10-30', style: { backgroundColor: '#ff8c00', color: '#ffffff' } };
+    }
+    if (minutes >= 30 && minutes < 60) {
+      return { text: '🟢 30–60 MIN', class: '30-60', style: { backgroundColor: '#00dd00', color: '#ffffff' } };
+    }
+    if (minutes >= 60 && minutes < 90) {
+      return { text: '🟡 60–90 MIN', class: '60-90', style: { backgroundColor: '#ffdd00', color: '#000000' } };
+    }
+    if (minutes >= 90 && minutes < 120) {
+      return { text: '🟠 90–120 MIN', class: '90-120', style: { backgroundColor: '#ff9900', color: '#ffffff' } };
+    }
+    if (minutes >= 120 && minutes < 150) {
+      return { text: '🔵 120–150 MIN', class: '120-150', style: { backgroundColor: '#0066ff', color: '#ffffff' } };
+    }
+    if (minutes >= 150 && minutes < 180) {
+      return { text: '🟣 150–180 MIN', class: '150-180', style: { backgroundColor: '#9900ff', color: '#ffffff' } };
+    }
+    
+    return { text: `❔ OLDER (${Math.floor(minutes/60)}h)`, class: 'older', style: { backgroundColor: '#666666', color: '#ffffff' } };
+  }
+
   addFreshnessBadge(job) {
-    if (!job.element || !job.label) return;
+    if (!job.element) return;
 
     try {
       // Find or create badge container
       let container = job.element.querySelector('.ljf-badges-container');
-      if (!container) {
-        container = createElement('div', {
-          className: 'ljf-flex',
-          style: {
-            position: 'absolute',
-            top: '8px',
-            right: '8px',
-            zIndex: '10',
-            gap: '4px'
-          }
-        });
-        job.element.style.position = 'relative';
-        job.element.insertBefore(container, job.element.firstChild);
+      if (container) {
+        container.remove();
       }
+      
+      container = createElement('div', {
+        className: 'ljf-badges-container ljf-flex',
+        style: {
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          zIndex: '10',
+          gap: '4px'
+        }
+      });
+      job.element.style.position = 'relative';
+      job.element.insertBefore(container, job.element.firstChild);
+
+      const badgeInfo = this.getBadgeInfoForJob(job);
 
       // Create badge
       const badge = createElement('span', {
-        className: `ljf-badge ljf-${job.label.text.toLowerCase()}`,
+        className: `ljf-badge ljf-badge-${badgeInfo.class}`,
         title: job.formattedTime
-      }, `${job.label.emoji} ${job.label.text}`);
+      }, badgeInfo.text);
+      
+      // Apply custom background and color
+      Object.assign(badge.style, badgeInfo.style);
 
       container.appendChild(badge);
     } catch (error) {
@@ -246,13 +327,27 @@ class UIManager {
   applyTheme(theme) {
     this.theme = theme;
 
-    if (theme === 'dark') {
+    let resolvedTheme = theme;
+    if (theme === 'auto') {
+      const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const isLinkedInDark = document.documentElement.classList.contains('theme--dark') || 
+                             document.body.classList.contains('theme--dark-inverse') ||
+                             document.querySelector('html').getAttribute('data-theme') === 'dark';
+      resolvedTheme = (isSystemDark || isLinkedInDark) ? 'dark' : 'light';
+    }
+
+    document.documentElement.setAttribute('data-ljf-theme', resolvedTheme);
+    if (resolvedTheme === 'dark') {
+      document.documentElement.classList.add('ljf-dark-mode');
+      document.documentElement.classList.remove('ljf-light-mode');
       document.documentElement.style.colorScheme = 'dark';
     } else {
+      document.documentElement.classList.add('ljf-light-mode');
+      document.documentElement.classList.remove('ljf-dark-mode');
       document.documentElement.style.colorScheme = 'light';
     }
 
-    logger?.info('Theme applied:', theme);
+    logger?.info('Theme applied', { theme, resolvedTheme });
   }
 
   /**
@@ -283,7 +378,7 @@ class UIManager {
         color: 'white',
         padding: '12px 16px',
         borderRadius: '8px',
-        zIndex: '2000',
+        zIndex: '902',
         animation: 'slideIn 300ms ease-out',
         boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
         fontSize: '14px',
@@ -334,7 +429,7 @@ class UIManager {
         borderTop: '2px solid #0a66c2',
         borderRadius: '50%',
         animation: 'spin 1s linear infinite',
-        zIndex: '2000'
+        zIndex: '902'
       }
     });
 
@@ -367,13 +462,26 @@ class UIManager {
       removeClass(el, 'ljf-fresh');
       removeClass(el, 'ljf-recent');
       removeClass(el, 'ljf-stale');
+      
+      removeClass(el, 'ljf-range-now');
+      removeClass(el, 'ljf-range-0-10');
+      removeClass(el, 'ljf-range-10-30');
+      removeClass(el, 'ljf-range-30-60');
+      removeClass(el, 'ljf-range-60-90');
+      removeClass(el, 'ljf-range-90-120');
+      removeClass(el, 'ljf-range-120-150');
+      removeClass(el, 'ljf-range-150-180');
+      removeClass(el, 'ljf-range-unknown');
+      removeClass(el, 'ljf-range-older');
     });
 
     // Remove badges
     document.querySelectorAll('.ljf-badge').forEach(el => el.remove());
+    document.querySelectorAll('.ljf-badges-container').forEach(el => el.remove());
 
     // Restore body padding
     document.body.style.paddingTop = '';
+    this.highlightedJobsCount = 0;
 
     logger?.info('UI cleared');
   }
@@ -385,9 +493,9 @@ class UIManager {
   getState() {
     return {
       filterBar: !!this.filterBar,
-      currentFilter: this.currentFilter,
+      activeRangeId: this.activeRangeId,
       theme: this.theme,
-      highlightedJobsCount: this.highlightedJobs.size
+      highlightedJobsCount: this.highlightedJobsCount
     };
   }
 }

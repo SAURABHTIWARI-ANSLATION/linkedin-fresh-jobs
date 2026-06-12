@@ -10,9 +10,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.app',
+  title: 'LinkedIn Fresh Jobs Intelligence',
+  description: 'Real-time job freshness filtering for LinkedIn. Filter by posted time and see what\'s new at a glance.',
+  generator: 'LinkedIn Fresh Jobs',
   icons: {
     icon: [
       {

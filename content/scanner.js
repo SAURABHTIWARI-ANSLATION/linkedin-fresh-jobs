@@ -12,13 +12,282 @@ class JobScanner {
   }
 
   /**
-   * Scan the page for all job cards
+   * Helper: extract jobId from URL string
+   */
+  extractJobIdFromUrl(url) {
+    if (!url) return null;
+    try {
+      const decoded = decodeURIComponent(url);
+      const viewMatch = decoded.match(/\/jobs\/view\/(\d+)/);
+      if (viewMatch) return viewMatch[1];
+      const queryMatch = decoded.match(/currentJobId=(\d+)/);
+      if (queryMatch) return queryMatch[1];
+    } catch (e) {
+      // Ignore
+    }
+    return null;
+  }
+
+  /**
+   * Helper: check if element belongs to extension UI
+   */
+  isExtensionElement(element) {
+    if (!element) return false;
+    const id = element.id || '';
+    const className = typeof element.className === 'string' ? element.className : '';
+    if (id.includes('ljf-') || className.includes('ljf-')) {
+      return true;
+    }
+    if (element.closest('#ljf-dashboard-root') || element.closest('.ljf-filter-bar')) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Helper: checks if element is a valid card container candidate
+   */
+  isProbablyJobCard(element) {
+    if (!element) return false;
+    const tagName = element.tagName?.toLowerCase();
+    if (['html', 'body', 'main', 'header', 'nav', 'footer'].includes(tagName)) {
+      return false;
+    }
+    if (this.isExtensionElement(element)) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Helper: require a job identity signal and a useful parent score before treating an element as a card.
+   */
+  isValidJobCardCandidate(element) {
+    if (!this.isProbablyJobCard(element)) {
+      return false;
+    }
+
+    const hasDataId = Boolean(
+      element.getAttribute('data-job-id') ||
+      element.getAttribute('data-occludable-job-id') ||
+      element.getAttribute('data-entity-urn')?.includes('jobPosting')
+    );
+    const hasJobLink = Boolean(element.querySelector('a[href*="/jobs/view/"], a[href*="currentJobId="]'));
+    const textLength = (element.textContent || '').trim().length;
+
+    if (!hasDataId && !hasJobLink) {
+      return false;
+    }
+
+    if (textLength > 2500) {
+      return false;
+    }
+
+    return this.scoreParentElement(element) > 0;
+  }
+
+  /**
+   * Helper: score parent elements to find best job card representation
+   */
+  scoreParentElement(element) {
+    if (!element) return -999;
+    const tagName = element.tagName?.toLowerCase();
+    if (['html', 'body', 'main', 'header', 'nav', 'footer'].includes(tagName)) {
+      return -999;
+    }
+    if (this.isExtensionElement(element)) {
+      return -999;
+    }
+
+    let score = 0;
+    
+    // +30 if contains /jobs/view/ or currentJobId=
+    const hasJobLink = element.querySelector('a[href*="/jobs/view/"], a[href*="currentJobId="]');
+    if (hasJobLink) {
+      score += 30;
+    }
+
+    const text = element.textContent || '';
+    const textLength = text.length;
+
+    // +20 if text contains minutes/hour/day/ago/just now/reposted
+    const timeKeywords = /(?:minute|hour|day|week|month|year|second|ago|just\s+now|just\s+posted|just\s+published|reposted|promoted|actively\s+hiring|hiring|h\b|m\b|d\b|w\b)/i;
+    if (timeKeywords.test(text)) {
+      score += 20;
+    }
+
+    // +20 if text length between 80 and 1500
+    if (textLength >= 80 && textLength <= 1500) {
+      score += 20;
+    }
+
+    // +15 if contains location/company indicators
+    const hasLocationClass = element.querySelector('[class*="location"], [class*="metadata"]');
+    if (hasLocationClass || text.includes(',') || textLength > 150) {
+      score += 15;
+    }
+
+    // -20 if element text is too large (likely whole page/large list container)
+    if (textLength > 2000) {
+      score -= 20;
+    }
+
+    return score;
+  }
+
+  /**
+   * Find the best job card DOM container starting from a job link
+   */
+  findBestJobCardFromLink(link) {
+    if (!link) return null;
+
+    // Try standard parent containers first
+    const containers = [
+      link.closest('[data-occludable-job-id]'),
+      link.closest('[data-view-name*="job"]'),
+      link.closest('li'),
+      link.closest('article')
+    ];
+
+    for (const container of containers) {
+      if (container && this.isProbablyJobCard(container)) {
+        if (this.scoreParentElement(container) > 0) {
+          return container;
+        }
+      }
+    }
+
+    // Climbing parent element up to 8 levels and score each parent
+    let current = link;
+    let bestParent = null;
+    let highestScore = -999;
+
+    for (let i = 0; i < 8; i++) {
+      current = current.parentElement;
+      if (!current) break;
+      
+      const score = this.scoreParentElement(current);
+      if (score > highestScore) {
+        highestScore = score;
+        bestParent = current;
+      }
+    }
+
+    if (bestParent && highestScore > 0) {
+      return bestParent;
+    }
+
+    return null;
+  }
+
+  /**
+   * Deduplicate cards list to avoid duplicates during scroll
+   */
+  dedupeJobCards(cards) {
+    const uniqueCards = [];
+    const seenIds = new Set();
+    const seenHashes = new Set();
+
+    cards.forEach(card => {
+      if (!card) return;
+
+      const dataJobId = card.getAttribute('data-job-id');
+      const dataOccludable = card.getAttribute('data-occludable-job-id');
+      
+      let entityUrnId = null;
+      const urn = card.getAttribute('data-entity-urn');
+      if (urn) {
+        const match = urn.match(/jobPosting:(\d+)/);
+        if (match) entityUrnId = match[1];
+      }
+
+      let urlJobId = null;
+      const link = card.querySelector('a[href*="/jobs/view/"], a[href*="currentJobId="]');
+      if (link) {
+        urlJobId = this.extractJobIdFromUrl(link.href);
+      }
+
+      const ids = [dataJobId, dataOccludable, entityUrnId, urlJobId].filter(Boolean);
+      let isDuplicate = false;
+
+      for (const id of ids) {
+        if (seenIds.has(id)) {
+          isDuplicate = true;
+          break;
+        }
+      }
+
+      const text = card.textContent || '';
+      const textHash = text.trim().substring(0, 150).replace(/\s+/g, ' ').toLowerCase();
+      if (seenHashes.has(textHash)) {
+        isDuplicate = true;
+      }
+
+      if (!isDuplicate) {
+        ids.forEach(id => seenIds.add(id));
+        if (textHash) {
+          seenHashes.add(textHash);
+        }
+        uniqueCards.push(card);
+      }
+    });
+
+    return uniqueCards;
+  }
+
+  /**
+   * Scan the page for all job cards using multi-stage detection
    * @returns {Array<Element>} Array of job card elements
    */
   scanJobCards() {
-    const elements = safeQueryAll(SELECTORS.jobCard);
-    logger?.info(`Found ${elements.length} job cards`);
-    return elements;
+    let standardCards = [];
+    let fallbackCards = [];
+    const selectors = [
+      '.jobs-search-results__list-item',
+      '[data-job-id]',
+      '.job-card-container',
+      '[data-view-name*="job"]',
+      '[data-occludable-job-id]'
+    ];
+
+    // Stage 1: Standard selectors
+    selectors.forEach(sel => {
+      try {
+        const found = document.querySelectorAll(sel);
+        found.forEach(el => {
+          if (this.isValidJobCardCandidate(el)) {
+            standardCards.push(el);
+          }
+        });
+      } catch (e) {
+        // Ignore bad selector errors
+      }
+    });
+
+    // Stage 2: Anchor-based fallback. Always combine it with standard selectors
+    // because LinkedIn often moves the useful container one or two levels up.
+    const links = Array.from(document.querySelectorAll('a[href*="/jobs/view/"], a[href*="currentJobId="]'));
+    links.forEach(link => {
+      const card = this.findBestJobCardFromLink(link);
+      if (card && this.isValidJobCardCandidate(card)) {
+        fallbackCards.push(card);
+      }
+    });
+
+    const finalCards = [...standardCards, ...fallbackCards];
+
+    // Deduplicate
+    const uniqueCards = this.dedupeJobCards(finalCards);
+
+    // Logging & diagnostics
+    const sampleIds = uniqueCards.map(c => this.extractRealJobId(c)).filter(Boolean).slice(0, 5);
+    logger?.info(`[Scanner] Standard selector cards: ${standardCards.length}`);
+    logger?.info(`[Scanner] Job links found: ${links.length}`);
+    logger?.info(`[Scanner] Anchor fallback cards: ${fallbackCards.length}`);
+    logger?.info(`[Scanner] Final unique cards: ${uniqueCards.length}`);
+    logger?.info(`[Scanner] Sample job ids: [${sampleIds.join(', ')}]`);
+
+    return uniqueCards;
   }
 
   /**
@@ -27,7 +296,12 @@ class JobScanner {
    * @returns {Array<Element>} Job card elements
    */
   getJobCardsInContainer(container = document) {
-    return safeQueryAll(SELECTORS.jobCard, container);
+    if (container === document) {
+      return this.scanJobCards();
+    }
+    // Search within container
+    const allCards = this.scanJobCards();
+    return allCards.filter(card => container.contains(card));
   }
 
   /**
@@ -43,33 +317,56 @@ class JobScanner {
 
     try {
       // Extract basic info
-      const title = getElementText(element, SELECTORS.jobTitle);
-      const company = getElementText(element, SELECTORS.companyName);
-      const location = getElementText(element, SELECTORS.location);
+      const title = (getElementText(element, SELECTORS.jobTitle) || this.extractTitleText(element))?.trim();
+      const company = getElementText(element, SELECTORS.companyName)?.trim();
+      const location = getElementText(element, SELECTORS.location)?.trim();
+      const url = this.extractJobUrl(element);
+
+      // Validate critical properties to filter out fake cards (ads, placeholders, etc.)
+      if (!title || !url) {
+        logger?.debug('Discarding element due to missing critical title or url', { title, url });
+        return null;
+      }
       
       // Parse posted time
-      const minutes = timeParser.getTimeFromJobCard(element);
+      const timeParsed = timeParser.getTimeFromJobCard(element);
+      const minutesAgo = timeParsed.minutesAgo;
 
       // Generate or use provided job ID
-      const id = jobId || `job-${Date.now()}-${Math.random()}`;
+      const id = this.extractRealJobId(element) || jobId || `job-${Date.now()}-${Math.random()}`;
 
       // Create normalized job object
       return this.normalizeJobObject({
         id,
         element,
         title,
-        company,
-        location,
-        minutes,
-        timeText: this.extractTimeText(element),
-        url: this.extractJobUrl(element),
-        postedTime: new Date(Date.now() - minutes * 60000),
+        company: company || 'Unknown Company',
+        location: location || 'Unknown Location',
+        minutes: minutesAgo,
+        minutesAgo: minutesAgo,
+        isParseable: timeParsed.isParseable,
+        isNow: timeParsed.isNow,
+        timeParsed: timeParsed,
+        timeText: timeParsed.rawText || this.extractTimeText(element),
+        url,
+        postedTime: minutesAgo !== null ? new Date(Date.now() - minutesAgo * 60000) : null,
         scannedAt: Date.now()
       });
     } catch (error) {
       logger?.error('Error extracting job data', error);
       return null;
     }
+  }
+
+  /**
+   * Extract job title from the primary link if LinkedIn's title classes changed.
+   * @private
+   * @param {Element} element - Job card element
+   * @returns {string} Title text
+   */
+  extractTitleText(element) {
+    const link = element?.querySelector?.('a[href*="/jobs/view/"], a[href*="currentJobId="]');
+    return link?.textContent?.trim() || '';
   }
 
   /**
@@ -90,14 +387,54 @@ class JobScanner {
    * @returns {string|null} Job URL or null
    */
   extractJobUrl(element) {
+    if (!element) return null;
     try {
-      const link = element.querySelector('a[href*="/jobs/"]');
+      const link = element.querySelector('a[href*="/jobs/view/"], a[href*="currentJobId="]');
       if (link && link.href) {
         return link.href;
+      }
+      
+      const fallbackLink = element.querySelector('a[href*="/jobs/"]');
+      if (fallbackLink && fallbackLink.href) {
+        return fallbackLink.href;
+      }
+    } catch (e) {
+      // Ignore
+    }
+    return null;
+  }
+
+  /**
+   * Extract unique job ID from card
+   * @private
+   * @param {Element} element - Job card element
+   * @returns {string|null} Job ID or null
+   */
+  extractRealJobId(element) {
+    if (!element) return null;
+
+    try {
+      const dataJobId = element.getAttribute('data-job-id');
+      if (dataJobId) return dataJobId;
+
+      const dataOccludable = element.getAttribute('data-occludable-job-id');
+      if (dataOccludable) return dataOccludable;
+
+      const urn = element.getAttribute('data-entity-urn');
+      if (urn) {
+        const match = urn.match(/jobPosting:(\d+)/);
+        if (match) return match[1];
+      }
+
+      const link = element.querySelector('a[href*="/jobs/view/"], a[href*="currentJobId="], a[href*="/jobs/"]');
+      if (link && link.href) {
+        const id = this.extractJobIdFromUrl(link.href);
+        if (id) return id;
       }
     } catch (e) {
       // Ignore errors
     }
+
     return null;
   }
 
@@ -114,6 +451,10 @@ class JobScanner {
       company: data.company?.trim() || 'Unknown Company',
       location: data.location?.trim() || 'Unknown Location',
       minutes: data.minutes,
+      minutesAgo: data.minutesAgo,
+      isParseable: data.isParseable,
+      isNow: data.isNow,
+      timeParsed: data.timeParsed,
       timeText: data.timeText,
       url: data.url,
       postedTime: data.postedTime,
@@ -134,14 +475,12 @@ class JobScanner {
     const jobs = [];
 
     jobElements.forEach((element, index) => {
-      // Check if we've already scanned this element
       const cachedJob = this.scannedJobs.get(element);
       if (cachedJob && Date.now() - cachedJob.scannedAt < 5000) {
         jobs.push(cachedJob);
         return;
       }
 
-      // Extract new job data
       const jobData = this.extractJobData(element, `job-${index}`);
       if (jobData) {
         jobs.push(jobData);
@@ -149,18 +488,17 @@ class JobScanner {
       }
     });
 
-    // Enrich jobs with scores and labels
     const enrichedJobs = filterEngine.enrichJobs(jobs);
     
-    // Cache results
     this.jobDataCache = enrichedJobs;
     this.lastScanTime = Date.now();
     this.scanCount++;
 
     const duration = performance.now() - startTime;
     logger?.performance('Scan all jobs', duration);
+    const avgMs = enrichedJobs.length > 0 ? (duration / enrichedJobs.length).toFixed(2) : '0.00';
     logger?.info(`Scanned ${enrichedJobs.length} jobs`, {
-      average: (duration / enrichedJobs.length).toFixed(2) + 'ms per job'
+      average: `${avgMs}ms per job`
     });
 
     return enrichedJobs;
@@ -238,12 +576,13 @@ class JobScanner {
   }
 
   /**
-   * Get jobs posted in time window
-   * @param {number} minutes - Time window in minutes
-   * @returns {Array<Object>} Jobs within time window
+   * Get jobs in a specific time range
    */
-  getJobsInTimeWindow(minutes) {
-    return this.jobDataCache.filter(job => job.minutes <= minutes);
+  getJobsInTimeRange(minMinutes, maxMinutes) {
+    return this.jobDataCache.filter(job => {
+      if (typeof job.minutesAgo !== 'number') return false;
+      return job.minutesAgo >= minMinutes && job.minutesAgo < maxMinutes;
+    });
   }
 
   /**
@@ -254,7 +593,7 @@ class JobScanner {
     return {
       totalScanned: this.jobDataCache.length,
       scanCount: this.scanCount,
-      lastScanTime,
+      lastScanTime: this.lastScanTime,
       filteredCount: this.getFilteredJobs().length,
       stats: filterEngine.getStatistics(this.jobDataCache)
     };
