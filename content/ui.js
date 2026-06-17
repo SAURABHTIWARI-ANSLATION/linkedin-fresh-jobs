@@ -162,7 +162,7 @@ class UIManager {
     }
 
     // Ranges
-    const ranges = ["0-10", "10-30", "30-60", "60-90", "90-120", "120-150", "150-180"];
+    const ranges = ["0-10", "10-30", "30-60", "60-120", "120-180"];
     ranges.forEach(rangeId => {
       const btn = this.filterButtons.get(rangeId);
       if (btn) {
@@ -195,10 +195,8 @@ class UIManager {
         removeClass(job.element, 'ljf-range-0-10');
         removeClass(job.element, 'ljf-range-10-30');
         removeClass(job.element, 'ljf-range-30-60');
-        removeClass(job.element, 'ljf-range-60-90');
-        removeClass(job.element, 'ljf-range-90-120');
-        removeClass(job.element, 'ljf-range-120-150');
-        removeClass(job.element, 'ljf-range-150-180');
+        removeClass(job.element, 'ljf-range-60-120');
+        removeClass(job.element, 'ljf-range-120-180');
         removeClass(job.element, 'ljf-range-unknown');
         removeClass(job.element, 'ljf-range-older');
 
@@ -243,17 +241,11 @@ class UIManager {
     if (minutes >= 30 && minutes < 60) {
       return { text: '🟢 30–60 MIN', class: '30-60', style: { backgroundColor: '#00dd00', color: '#ffffff' } };
     }
-    if (minutes >= 60 && minutes < 90) {
-      return { text: '🟡 60–90 MIN', class: '60-90', style: { backgroundColor: '#ffdd00', color: '#000000' } };
+    if (minutes >= 60 && minutes < 120) {
+      return { text: '🟡 1–2 H', class: '60-120', style: { backgroundColor: '#ffdd00', color: '#000000' } };
     }
-    if (minutes >= 90 && minutes < 120) {
-      return { text: '🟠 90–120 MIN', class: '90-120', style: { backgroundColor: '#ff9900', color: '#ffffff' } };
-    }
-    if (minutes >= 120 && minutes < 150) {
-      return { text: '🔵 120–150 MIN', class: '120-150', style: { backgroundColor: '#0066ff', color: '#ffffff' } };
-    }
-    if (minutes >= 150 && minutes < 180) {
-      return { text: '🟣 150–180 MIN', class: '150-180', style: { backgroundColor: '#9900ff', color: '#ffffff' } };
+    if (minutes >= 120 && minutes < 180) {
+      return { text: '🟠 2–3 H', class: '120-180', style: { backgroundColor: '#ff9900', color: '#ffffff' } };
     }
     
     return { text: `❔ OLDER (${Math.floor(minutes/60)}h)`, class: 'older', style: { backgroundColor: '#666666', color: '#ffffff' } };
@@ -467,10 +459,8 @@ class UIManager {
       removeClass(el, 'ljf-range-0-10');
       removeClass(el, 'ljf-range-10-30');
       removeClass(el, 'ljf-range-30-60');
-      removeClass(el, 'ljf-range-60-90');
-      removeClass(el, 'ljf-range-90-120');
-      removeClass(el, 'ljf-range-120-150');
-      removeClass(el, 'ljf-range-150-180');
+      removeClass(el, 'ljf-range-60-120');
+      removeClass(el, 'ljf-range-120-180');
       removeClass(el, 'ljf-range-unknown');
       removeClass(el, 'ljf-range-older');
     });

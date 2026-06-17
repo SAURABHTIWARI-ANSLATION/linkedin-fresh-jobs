@@ -104,9 +104,7 @@ class PopupManager {
                     range.id === '0-10' ? '🔥' :
                     range.id === '10-30' ? '⚡' :
                     range.id === '30-60' ? '🟢' :
-                    range.id === '60-90' ? '🟡' :
-                    range.id === '90-120' ? '🟠' :
-                    range.id === '120-150' ? '🔵' : '🟣';
+                    range.id === '60-120' ? '🟡' : '🟠';
 
       btn.innerHTML = `
         <span class="preset-emoji">${emoji}</span>

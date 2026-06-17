@@ -274,28 +274,18 @@ const TIME_RANGE_FILTERS = [
     maxMinutes: 60
   },
   {
-    id: "60-90",
-    label: "60–90 min",
+    id: "60-120",
+    label: "1–2 h",
     minMinutes: 60,
-    maxMinutes: 90
+    maxMinutes: 120,
+    description: "Posted 1 to 2 hours ago"
   },
   {
-    id: "90-120",
-    label: "90–120 min",
-    minMinutes: 90,
-    maxMinutes: 120
-  },
-  {
-    id: "120-150",
-    label: "120–150 min",
+    id: "120-180",
+    label: "2–3 h",
     minMinutes: 120,
-    maxMinutes: 150
-  },
-  {
-    id: "150-180",
-    label: "150–180 min",
-    minMinutes: 150,
-    maxMinutes: 180
+    maxMinutes: 180,
+    description: "Posted 2 to 3 hours ago"
   }
 ];
 

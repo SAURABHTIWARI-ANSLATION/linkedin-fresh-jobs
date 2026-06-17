@@ -301,10 +301,8 @@ class FilterEngine {
       "0-10": 0,
       "10-30": 0,
       "30-60": 0,
-      "60-90": 0,
-      "90-120": 0,
-      "120-150": 0,
-      "150-180": 0,
+      "60-120": 0,
+      "120-180": 0,
       older: 0,
       unknown: 0
     };
@@ -324,14 +322,10 @@ class FilterEngine {
         counts["10-30"]++;
       } else if (minutesAgo >= 30 && minutesAgo < 60) {
         counts["30-60"]++;
-      } else if (minutesAgo >= 60 && minutesAgo < 90) {
-        counts["60-90"]++;
-      } else if (minutesAgo >= 90 && minutesAgo < 120) {
-        counts["90-120"]++;
-      } else if (minutesAgo >= 120 && minutesAgo < 150) {
-        counts["120-150"]++;
-      } else if (minutesAgo >= 150 && minutesAgo < 180) {
-        counts["150-180"]++;
+      } else if (minutesAgo >= 60 && minutesAgo < 120) {
+        counts["60-120"]++;
+      } else if (minutesAgo >= 120 && minutesAgo < 180) {
+        counts["120-180"]++;
       } else {
         counts.older++;
       }

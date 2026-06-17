@@ -188,21 +188,13 @@ html.ljf-light-mode,
   border-left: 4px solid #00dd00;
   background: linear-gradient(90deg, rgba(0, 221, 0, 0.05) 0%, transparent 100%);
 }
-.ljf-job-card.ljf-range-60-90 {
+.ljf-job-card.ljf-range-60-120 {
   border-left: 4px solid #ffdd00;
   background: linear-gradient(90deg, rgba(255, 221, 0, 0.05) 0%, transparent 100%);
 }
-.ljf-job-card.ljf-range-90-120 {
+.ljf-job-card.ljf-range-120-180 {
   border-left: 4px solid #ff9900;
   background: linear-gradient(90deg, rgba(255, 153, 0, 0.05) 0%, transparent 100%);
-}
-.ljf-job-card.ljf-range-120-150 {
-  border-left: 4px solid #0066ff;
-  background: linear-gradient(90deg, rgba(0, 102, 255, 0.05) 0%, transparent 100%);
-}
-.ljf-job-card.ljf-range-150-180 {
-  border-left: 4px solid #9900ff;
-  background: linear-gradient(90deg, rgba(153, 0, 255, 0.05) 0%, transparent 100%);
 }
 .ljf-job-card.ljf-range-unknown {
   border-left: 4px dashed #999999;
