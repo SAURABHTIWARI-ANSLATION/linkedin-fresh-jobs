@@ -396,11 +396,11 @@ class ContentScriptManager {
       // Save to storage
       await storage.setValue('activeRangeId', rangeId);
 
-      const didNavigate = this.updateUrlForFilter(rangeId);
-      if (!didNavigate) {
-        await this.performScan();
-      }
-      
+      // Apply the filter in-page instantly. We intentionally do NOT navigate
+      // LinkedIn via f_TPR here: LinkedIn ignores sub-hour values, which made
+      // the filter look broken (full reload, unchanged/empty result set).
+      await this.performScan();
+
       logger?.info('Filter applied:', rangeId);
     });
 
@@ -413,10 +413,8 @@ class ContentScriptManager {
       uiManager.updateFilterButtonStates();
       
       await storage.setValue('activeRangeId', null);
-      const didNavigate = this.updateUrlForFilter(null);
-      if (!didNavigate) {
-        await this.performScan();
-      }
+      // Reset in-page (show all jobs) without reloading the LinkedIn page.
+      await this.performScan();
       logger?.info('Filters reset');
     });
 
@@ -497,13 +495,9 @@ class ContentScriptManager {
           storage.setValue('customMax', customMax !== null ? customMax : 60);
         }
         
-        // Update URL with seconds parameter for LinkedIn's backend scraper formula
-        const didNavigate = this.updateUrlForFilter(filter, customMin, customMax);
-
-        if (!didNavigate) {
-          this.performScan();
-        }
-        sendResponse({ success: true, navigating: didNavigate });
+        // Apply the filter in-page instantly (no LinkedIn reload).
+        this.performScan();
+        sendResponse({ success: true, navigating: false });
       } else if (message.type === 'THEME_CHANGED') {
         uiManager.applyTheme(message.theme);
         sendResponse({ success: true });

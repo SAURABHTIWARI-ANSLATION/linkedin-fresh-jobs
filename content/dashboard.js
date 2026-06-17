@@ -175,23 +175,13 @@ class Dashboard {
       </div>
 
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">🟡 60–90 min</span>
-        <span class="ljf-stat-value">${counts["60-90"]}</span>
+        <span class="ljf-stat-label">🟡 1–2 h</span>
+        <span class="ljf-stat-value">${counts["60-120"]}</span>
       </div>
 
       <div class="ljf-stat-row">
-        <span class="ljf-stat-label">🟠 90–120 min</span>
-        <span class="ljf-stat-value">${counts["90-120"]}</span>
-      </div>
-
-      <div class="ljf-stat-row">
-        <span class="ljf-stat-label">🔵 120–150 min</span>
-        <span class="ljf-stat-value">${counts["120-150"]}</span>
-      </div>
-
-      <div class="ljf-stat-row">
-        <span class="ljf-stat-label">🟣 150–180 min</span>
-        <span class="ljf-stat-value">${counts["150-180"]}</span>
+        <span class="ljf-stat-label">🟠 2–3 h</span>
+        <span class="ljf-stat-value">${counts["120-180"]}</span>
       </div>
 
       <div class="ljf-stat-row">
